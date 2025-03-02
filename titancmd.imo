@@ -1,0 +1,107 @@
+/*
+ * Arduino Current Sensor Relay Control
+ * 
+ * This sketch reads values from a current sensor (ACS712 or similar)
+ * and controls relays based on the current readings.
+ * 
+ * Hardware:
+ * - Arduino board (Uno, Nano, Mega, etc.)
+ * - Current sensor (ACS712 or similar)
+ * - Relay module (1 or more channels)
+ * 
+ * Connections:
+ * - Current sensor output -> Arduino analog pin A0
+ * - Relay module input pins -> Arduino digital pins (D2, D3, etc.)
+ */
+
+// Define pins
+const int currentSensorPin = A0;  // Analog input pin for current sensor
+const int relay1Pin = 2;          // Digital output pin for relay 1
+const int relay2Pin = 3;          // Digital output pin for relay 2
+
+// Define thresholds for relay control (in amperes)
+const float lowCurrentThreshold = 1.0;   // Threshold for low current
+const float highCurrentThreshold = 5.0;  // Threshold for high current
+
+// Variables for ACS712 sensor (30A model, adjust values for your specific sensor)
+const float voltsPerAmp = 0.066;    // Sensitivity of ACS712 30A model (66mV/A)
+const float vRef = 5.0;             // Reference voltage (5V for most Arduinos)
+const float offsetVoltage = 2.5;    // Zero current output voltage (midpoint value)
+
+void setup() {
+  // Initialize serial communication for debugging
+  Serial.begin(9600);
+  
+  // Initialize relay pins as outputs
+  pinMode(relay1Pin, OUTPUT);
+  pinMode(relay2Pin, OUTPUT);
+  
+  // Set initial relay states (OFF)
+  digitalWrite(relay1Pin, LOW);
+  digitalWrite(relay2Pin, LOW);
+  
+  Serial.println("Current Sensor Relay Control initialized");
+  Serial.println("-------------------------------------");
+}
+
+void loop() {
+  // Read current sensor value
+  float currentValue = readCurrentSensor();
+  
+  // Print current reading to serial monitor
+  Serial.print("Current: ");
+  Serial.print(currentValue, 2);  // Print with 2 decimal places
+  Serial.println(" A");
+  
+  // Control relays based on current readings
+  controlRelays(currentValue);
+  
+  // Delay before next reading
+  delay(1000);  // 1 second delay
+}
+
+// Function to read and calculate current from sensor
+float readCurrentSensor() {
+  // Read the raw sensor value (average multiple readings for stability)
+  int rawValue = 0;
+  int numSamples = 10;
+  
+  for (int i = 0; i < numSamples; i++) {
+    rawValue += analogRead(currentSensorPin);
+    delay(2);
+  }
+  
+  rawValue = rawValue / numSamples;
+  
+  // Convert ADC value to voltage
+  float voltage = (rawValue / 1024.0) * vRef;
+  
+  // Convert voltage to current using sensitivity and offset
+  float current = (voltage - offsetVoltage) / voltsPerAmp;
+  
+  // Return absolute value of current (direction doesn't matter in this application)
+  return abs(current);
+}
+
+// Function to control relays based on current value
+void controlRelays(float current) {
+  // Relay 1 - Activate if current is BELOW low threshold
+  if (current < lowCurrentThreshold) {
+    digitalWrite(relay1Pin, HIGH);  // Activate relay 1
+    Serial.println("Relay 1: ON (Low current detected)");
+  } else {
+    digitalWrite(relay1Pin, LOW);   // Deactivate relay 1
+    Serial.println("Relay 1: OFF");
+  }
+  
+  // Relay 2 - Activate if current is ABOVE high threshold
+  if (current > highCurrentThreshold) {
+    digitalWrite(relay2Pin, HIGH);  // Activate relay 2
+    Serial.println("Relay 2: ON (High current detected)");
+  } else {
+    digitalWrite(relay2Pin, LOW);   // Deactivate relay 2
+    Serial.println("Relay 2: OFF");
+  }
+  
+  Serial.println("-------------------------------------");
+}
